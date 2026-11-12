@@ -44,10 +44,56 @@ const { users, nextId } = require('../data');
 //
 // Hint: use Array.prototype.find() on `users`. No database, no await needed.
 // ───────────────────────────────────────────────────────────────────────────────
+
 async function verifyCallback(accessToken, refreshToken, profile, done) {
-  // Replace this stub with your implementation.
-  return done(null, false);
+  try {
+    const googleId = profile.id;
+    const email = profile.emails[0].value;
+    const name = profile.displayName;
+    const emailVerified = profile._json.email_verified;
+
+    // 1. RETURNING OAuth user
+    const existingUserByGoogleId = users.find(
+      user => user.googleId === googleId
+    );
+
+    if (existingUserByGoogleId) {
+      return done(null, existingUserByGoogleId);
+    }
+
+    // 2. EXISTING local account (first-time Google login)
+    const existingEmailUser = users.find(
+      user => user.email === email
+    );
+
+    if (existingEmailUser) {
+      if (emailVerified === true) {
+        existingEmailUser.googleId = googleId;
+        return done(null, existingEmailUser);
+      }
+
+      return done(null, false);
+    }
+
+    // 3. BRAND-NEW user
+    const newUser = {
+      id: nextId(),
+      googleId: googleId,
+      email: email,
+      name: name,
+      role: 'member'
+    };
+
+    users.push(newUser);
+
+    return done(null, newUser);
+
+  } catch (error) {
+    return done(error);
+  }
 }
+
+// ───────────────────────────────────────────────────────────────────────────────
 
 passport.use(
   new GoogleStrategy(
